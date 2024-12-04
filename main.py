@@ -73,7 +73,7 @@ def custom_map_radians(coords):
 #     c = 2 * asin(sqrt(a)) 
 #     r = 6371
 #     return c * r
-# @nb.jit(nopython=True, cache=True)
+# @nb.jit()
 def haversine(pos1: tuple, pos2: tuple):
     """
     Calculate the great circle distance in kilometers between two points 
@@ -94,20 +94,35 @@ def haversine(pos1: tuple, pos2: tuple):
     r = 6371  # Radius of earth in kilometers
     return c * r
 
+def start_meas():
+    global t1
+    global t2
+    t1 = time.perf_counter(), time.process_time()
+
+def end_meas():
+    global t1
+    global t2
+    global t_sum
+    global t_it
+    t2 = time.perf_counter(), time.process_time()
+    t_sum = t_sum + t2[0] - t1[0]
+    t_it += 1
+
 # @nb.jit(nopython=True, cache=True)
 def weighted_trip_length_custom(tuples, weights): 
-    # global t1
-    # global t2
+    
     dist = 0.0
     prev_stop = north_pole
     
     prev_weight = sum(weights)
+    start_meas()
     for location, weight in zip(tuples, weights):
+        
         dist = dist + haversine(location, prev_stop) * prev_weight
         
         prev_stop = location
         prev_weight = prev_weight - weight
-    
+    end_meas()
     return dist
 
 # @nb.jit(nopython=True, cache=True)
@@ -192,7 +207,7 @@ for t in solution['TripId'].unique():
         weights[len(weights)-2] = rl[3]
         
         # weights[len(weights)-2] = row_next_chunk['Weight']
-        t1 = time.perf_counter(), time.process_time()
+        
         wrw = weighted_trip_length_custom(postion, weights)
         t2 = time.perf_counter(), time.process_time()
         
@@ -202,8 +217,7 @@ for t in solution['TripId'].unique():
 
 
         
-        t_sum = t_sum + t2[0] - t1[0]
-        t_it += 1
+        
     # print(f" Total time: {(t_sum)*1e3:.2f} msec")
     print(f" Cycle time: {(t_sum)/t_it*1e6:.2f} usec")
 
