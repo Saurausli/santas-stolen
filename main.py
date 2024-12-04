@@ -54,61 +54,45 @@ def custom_map_radians(coords):
         result.append(coord * (3.141592653589793 / 180))  # Manual radians conversion
     return result
 
-@nb.jit(nopython=True, cache=True)
-def haversine(pos1:tuple,pos2:tuple):
-    """
-    Calculate the great circle distance in kilometers between two points 
-    on the earth (specified in decimal degrees)
-    """
-    # convert decimal degrees to radians 
-    lon1 = pos1[0]* (3.141592653589793 / 180)
-    lat1 = pos1[1]* (3.141592653589793 / 180)
-    lon2 = pos2[0]* (3.141592653589793 / 180)
-    lat2 = pos2[1]* (3.141592653589793 / 180)
-        
-    # haversine formula 
-    dlon = lon2 - lon1 
-    dlat = lat2 - lat1 
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a)) 
-    r = 6371
-    return c * r
-# # @nb.jit(nopython=True, cache=True)
-# def haversine(pos1: tuple, pos2: tuple):
+# @nb.jit(nopython=True, cache=True)
+# def haversine(pos1:tuple,pos2:tuple):
 #     """
 #     Calculate the great circle distance in kilometers between two points 
-#     on the earth (specified in decimal degrees) using NumPy.
+#     on the earth (specified in decimal degrees)
 #     """
 #     # convert decimal degrees to radians 
-#     # lon1, lat1, lon2, lat2 = np.radians([*pos1, *pos2])
-#     # pos = pos* (3.141592653589793 / 180)
 #     lon1 = pos1[0]* (3.141592653589793 / 180)
 #     lat1 = pos1[1]* (3.141592653589793 / 180)
 #     lon2 = pos2[0]* (3.141592653589793 / 180)
 #     lat2 = pos2[1]* (3.141592653589793 / 180)
+        
 #     # haversine formula 
 #     dlon = lon2 - lon1 
 #     dlat = lat2 - lat1 
-#     a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
-#     c = 2 * np.arcsin(np.sqrt(a)) 
-#     r = 6371  # Radius of earth in kilometers
+#     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+#     c = 2 * asin(sqrt(a)) 
+#     r = 6371
 #     return c * r
-
 # @nb.jit(nopython=True, cache=True)
-# def weighted_trip_length_custom(tuples, weights): 
-#     # global t1
-#     # global t2
-#     dist = 0.0
-#     prev_stop = north_pole
-    
-#     prev_weight = np.sum(weights)
-#     for location, weight in zip(tuples, weights):
-#         dist = dist + haversine(location, prev_stop) * prev_weight
-        
-#         prev_stop = location
-#         prev_weight = prev_weight - weight
-    
-#     return dist
+def haversine(pos1: tuple, pos2: tuple):
+    """
+    Calculate the great circle distance in kilometers between two points 
+    on the earth (specified in decimal degrees) using NumPy.
+    """
+    # convert decimal degrees to radians 
+    # lon1, lat1, lon2, lat2 = np.radians([*pos1, *pos2])
+    # pos = pos* (3.141592653589793 / 180)
+    lon1 = pos1[0]* (3.141592653589793 / 180)
+    lat1 = pos1[1]* (3.141592653589793 / 180)
+    lon2 = pos2[0]* (3.141592653589793 / 180)
+    lat2 = pos2[1]* (3.141592653589793 / 180)
+    # haversine formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    c = 2 * asin(sqrt(a)) 
+    r = 6371  # Radius of earth in kilometers
+    return c * r
 
 # @nb.jit(nopython=True, cache=True)
 def weighted_trip_length_custom(tuples, weights): 
@@ -116,36 +100,52 @@ def weighted_trip_length_custom(tuples, weights):
     # global t2
     dist = 0.0
     prev_stop = north_pole
-    weights = np.array(weights)
-    prev_weight = np.sum(weights)
-    # print(tuples)
-    position = np.asmatrix(tuples)* (3.141592653589793 / 180)
-
-    # print(position) 
-    lon1 = position[0,:-1]  
-    lat1 =  position[1,:-1]  
-    lon2 = position[0,1:] 
-    lat2 =position[1,1:]
-    # haversine formula 
-    # dlon = position[0,1:] - position[0,:-1]  
-    # dlat = position[1,1:] - position[1,:-1]  
-    dlon = lon2 - lon1 
-    dlat = lat2 - lat1 
-    # print(lon1) 
-    a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
-    # print(a)
-    c = 2 * np.arcsin(np.sqrt(a)) 
-    r = 6371  # Radius of earth in kilometers
-    haversine =  c * r
-    for location, weight in zip(haversine, weights):
-        
-        
-        dist = dist + haversine * prev_weight
+    
+    prev_weight = sum(weights)
+    for location, weight in zip(tuples, weights):
+        dist = dist + haversine(location, prev_stop) * prev_weight
         
         prev_stop = location
         prev_weight = prev_weight - weight
     
     return dist
+
+# @nb.jit(nopython=True, cache=True)
+# def weighted_trip_length_custom(tuples, weights): 
+#     # global t1
+#     # global t2
+#     dist = 0.0
+#     prev_stop = north_pole
+#     weights = np.array(weights)
+#     prev_weight = np.sum(weights)
+#     # print(tuples)
+#     position = np.asmatrix(tuples)* (3.141592653589793 / 180)
+
+#     # print(position) 
+#     lon1 = position[0,:-1]  
+#     lat1 =  position[1,:-1]  
+#     lon2 = position[0,1:] 
+#     lat2 =position[1,1:]
+#     # haversine formula 
+#     # dlon = position[0,1:] - position[0,:-1]  
+#     # dlat = position[1,1:] - position[1,:-1]  
+#     dlon = lon2 - lon1 
+#     dlat = lat2 - lat1 
+#     # print(lon1) 
+#     a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
+#     # print(a)
+#     c = 2 * np.arcsin(np.sqrt(a)) 
+#     r = 6371  # Radius of earth in kilometers
+#     haversine =  c * r
+#     for location, weight in zip(haversine, weights):
+        
+        
+#         dist = dist + haversine * prev_weight
+        
+#         prev_stop = location
+#         prev_weight = prev_weight - weight
+    
+#     return dist
 
 
 
