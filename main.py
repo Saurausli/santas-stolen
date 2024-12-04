@@ -120,8 +120,8 @@ def weighted_trip_length_custom(tuples, weights):
 
         dlon = (prev_stop[0] - location[0])* (3.141592653589793 / 180) 
         dlat = (prev_stop[1] - location[1]) * (3.141592653589793 / 180)
-        a = sin(dlat / 2)**2 + cos(location[1]) * cos(prev_stop[1]) * sin(dlon / 2)**2
-        print(a)
+        a = sin(dlat / 2)**2 + cos(location[1]* (3.141592653589793 / 180) ) * cos(prev_stop[1]* (3.141592653589793 / 180) ) * sin(dlon / 2)**2
+        # print(a)
         c = 2 * asin(sqrt(a)) 
         r = 6371
         
