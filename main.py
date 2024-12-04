@@ -117,8 +117,15 @@ def weighted_trip_length_custom(tuples, weights):
     prev_weight = sum(weights)
     start_meas()
     for location, weight in zip(tuples, weights):
+
+        dlon = (prev_stop[0] - location[0])* (3.141592653589793 / 180) 
+        dlat = (prev_stop[1] - location[1]) * (3.141592653589793 / 180)
+        a = sin(dlat / 2)**2 + cos(location[1]) * cos(prev_stop[1]) * sin(dlon / 2)**2
+        print(a)
+        c = 2 * asin(sqrt(a)) 
+        r = 6371
         
-        dist = dist + haversine(location, prev_stop) * prev_weight
+        dist = dist + r * c * prev_weight
         
         prev_stop = location
         prev_weight = prev_weight - weight
