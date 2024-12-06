@@ -2,7 +2,7 @@ north_pole = [90.0,0.0]
 weight_limit = 1000
 sleigh_weight = 10.0
 
-
+import random
 import pandas as pd
 import numpy as np
 from haversine import haversine as hv
@@ -54,26 +54,7 @@ def custom_map_radians(coords):
         result.append(coord * (3.141592653589793 / 180))  # Manual radians conversion
     return result
 
-# @nb.jit(nopython=True, cache=True)
-# def haversine(pos1:tuple,pos2:tuple):
-#     """
-#     Calculate the great circle distance in kilometers between two points 
-#     on the earth (specified in decimal degrees)
-#     """
-#     # convert decimal degrees to radians 
-#     lon1 = pos1[0]* (3.141592653589793 / 180)
-#     lat1 = pos1[1]* (3.141592653589793 / 180)
-#     lon2 = pos2[0]* (3.141592653589793 / 180)
-#     lat2 = pos2[1]* (3.141592653589793 / 180)
-        
-#     # haversine formula 
-#     dlon = lon2 - lon1 
-#     dlat = lat2 - lat1 
-#     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-#     c = 2 * asin(sqrt(a)) 
-#     r = 6371
-#     return c * r
-# @nb.jit()
+
 def haversine(pos1: tuple, pos2: tuple):
     """
     Calculate the great circle distance in kilometers between two points 
@@ -108,133 +89,99 @@ def end_meas():
     t_sum = t_sum + t2[0] - t1[0]
     t_it += 1
 
-# @nb.jit(nopython=True, cache=True)
-def weighted_trip_length_custom(tuples, weights): 
-    
-    dist = 0.0
-    prev_stop = north_pole
-    
-    prev_weight = sum(weights)
-    start_meas()
-    for location, weight in zip(tuples, weights):
+def print_meas():
+    global t_sum
+    global t_it
+    print(f" Total time: {(t_sum):.2f} sec")
+    print(f" Cycle time: {(t_sum)/t_it*1e6:.2f} usec")
+    t_sum = 0
+    t_it = 0
 
-        dlon = (prev_stop[0] - location[0])* (3.141592653589793 / 180) 
-        dlat = (prev_stop[1] - location[1]) * (3.141592653589793 / 180)
-        a = sin(dlat / 2)**2 + cos(location[1]* (3.141592653589793 / 180) ) * cos(prev_stop[1]* (3.141592653589793 / 180) ) * sin(dlon / 2)**2
+
+
+
+def calcutlate_df_loop(inital_step,next_steps,gifts):
+    # print(inital_step[inital_step["GiftId"]==99980])
+    # print(next_steps[next_steps["GiftId"]==99980])
+    trips = inital_step['TripId'].unique().tolist()
+    random.shuffle(trips)
+    for t in trips:
+        start_meas()
+        last_step = inital_step[inital_step['TripId']==t].iloc[-1]
+        # print(last_step)
+
+        wrw_min_row = []
+        start_lat = float(last_step['Latitude'])* (3.141592653589793 / 180)
+        start_lon = float(last_step['Longitude'])* (3.141592653589793 / 180)
+        
+
+        end_lat = next_steps['Latitude'].to_numpy()* (3.141592653589793 / 180)
+        end_lon = next_steps['Longitude'].to_numpy()* (3.141592653589793 / 180)
+        weights = next_steps['Weight'].to_numpy()
+        if len(weights)==0:
+            end_meas()
+            break
+        dlon = (start_lon - end_lon) 
+        dlat = (start_lat - end_lat)
+        a = np.sin(dlat / 2)**2 + np.cos(end_lat) * np.cos(start_lat) * np.sin(dlon / 2)**2
         # print(a)
-        c = 2 * asin(sqrt(a)) 
+        c = 2 * np.asin(np.sqrt(a)) 
         r = 6371
         
-        dist = dist + r * c * prev_weight
-        
-        prev_stop = location
-        prev_weight = prev_weight - weight
-    end_meas()
-    return dist
+        dist =  r * c * weights
+        # print(dist.argmin())
+        # print(next_steps)
+        # try:
+        wrw_min_row = next_steps.iloc[dist.argmin()].copy()
+        # except ValueError:
+        #     print(weights)
+        #     print(c)
+        #     print(dist)
+        #     print(next_steps)
+        wrw_min_row['TripId'] = t
+        wrw_min_row= wrw_min_row.to_frame().T
+        # if t == 0:
+        # print(wrw_min_row)
+        next_steps.drop(index=wrw_min_row.index, inplace = True)
+        gifts.drop(index = wrw_min_row.index, inplace = True)
 
-# @nb.jit(nopython=True, cache=True)
-# def weighted_trip_length_custom(tuples, weights): 
-#     # global t1
-#     # global t2
-#     dist = 0.0
-#     prev_stop = north_pole
-#     weights = np.array(weights)
-#     prev_weight = np.sum(weights)
-#     # print(tuples)
-#     position = np.asmatrix(tuples)* (3.141592653589793 / 180)
+        inital_step = pd.concat([inital_step,wrw_min_row], ignore_index=True)
+        
 
-#     # print(position) 
-#     lon1 = position[0,:-1]  
-#     lat1 =  position[1,:-1]  
-#     lon2 = position[0,1:] 
-#     lat2 =position[1,1:]
-#     # haversine formula 
-#     # dlon = position[0,1:] - position[0,:-1]  
-#     # dlat = position[1,1:] - position[1,:-1]  
-#     dlon = lon2 - lon1 
-#     dlat = lat2 - lat1 
-#     # print(lon1) 
-#     a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
-#     # print(a)
-#     c = 2 * np.arcsin(np.sqrt(a)) 
-#     r = 6371  # Radius of earth in kilometers
-#     haversine =  c * r
-#     for location, weight in zip(haversine, weights):
-        
-        
-#         dist = dist + haversine * prev_weight
-        
-#         prev_stop = location
-#         prev_weight = prev_weight - weight
+        end_meas()   
     
-#     return dist
+    return inital_step
 
+if __name__ == "__main__":
+    trips= 5000
+    weight_difference = 5
 
+    gifts = pd.read_csv('gifts.csv')
+    sample_sub = pd.read_csv('sample_submission.csv')
+    gifts = gifts.sort_values(by=['Weight'], ascending=False)
+    solution = gifts.head(trips).copy()
 
-trips= 5000
-gifts = pd.read_csv('gifts.csv')
-sample_sub = pd.read_csv('sample_submission.csv')
-gifts = gifts.sort_values(by=['Weight'], ascending=False)
-solution = gifts.head(trips).copy()
-gifts.drop(index = solution.index, inplace = False)
-# plt.scatter(solution["Longitude"],solution["Latitude"])
+    gifts.drop(index = solution.index, inplace = True)
+    # plt.scatter(solution["Longitude"],solution["Latitude"])
 
-solution['TripId'] = range(0, len(solution))
+    solution['TripId'] = range(0, len(solution))
 
-next_chunk = gifts.head(trips).copy()
-gifts.drop(index = next_chunk.index, inplace = False)
+    while len(gifts.index)> 0:
+        # print(f"gifts length {len(gifts.index)}")
+        gifts_max = gifts["Weight"].max()
+        print(f"{gifts_max:.2f}-{gifts_max-weight_difference:.2f}")
+        next_chunk = gifts[(gifts["Weight"]>gifts_max-weight_difference)].copy()
 
-for t in solution['TripId'].unique():
-    part_solution = solution[solution['TripId']==t]
-    wrw_min = np.inf
-    wrw_min_row = []
-
-    postion = [[float(part_solution['Latitude'].values[0]),float(part_solution['Longitude'].values[0])]]
-    # print(stops)
-    # stops = part_solution[['Latitude','Longitude']]
-    # postion = [tuple(x) for x in stops.values]
-
-    postion.append([0,0])
-    postion.append(north_pole)
-
-    weights = part_solution.Weight.to_list()
-    
-    weights.append(0)
-    weights.append(sleigh_weight)
-
-    # t1 = time.perf_counter(), time.process_time()
-    
-    for i, row_next_chunk in next_chunk.iterrows():
+        #next_chunk = gifts.head(trips).copy()
         
-        rl = row_next_chunk.to_list()
-        # print(rl[1:3])
-        
-        # pos= [row_next_chunk['Latitude'],row_next_chunk['Longitude']]
-        postion[len(postion)-2] = rl[1:3]
-        weights[len(weights)-2] = rl[3]
-        
-        # weights[len(weights)-2] = row_next_chunk['Weight']
-        
-        wrw = weighted_trip_length_custom(postion, weights)
-        t2 = time.perf_counter(), time.process_time()
-        
-        if wrw < wrw_min:
-            wrw_min_row = row_next_chunk
-            wrw_min = wrw
+        solution = calcutlate_df_loop(solution,next_chunk,gifts)
+        print(f"solution {len(solution.index)}")
 
-
-        
-        
-    # print(f" Total time: {(t_sum)*1e3:.2f} msec")
-    print(f" Cycle time: {(t_sum)/t_it*1e6:.2f} usec")
-
-    # print(f" Real time: {1e6*(t2[0] - t1[0])/trips:.2f} usec")
-    #print(f" CPU time: {1e6*(t2[1] - t1[1])/trips:.2f} usec")
-    wrw_min_row= wrw_min_row.to_frame().T
-    next_chunk.drop(index=wrw_min_row.index, inplace = False)
-    solution = pd.concat([solution,wrw_min_row], ignore_index=True)
-print(weighted_reindeer_weariness(solution))
-plt.show()
+    print_meas()
+    print(weighted_reindeer_weariness(solution))
+    solution.to_csv("second_solution.csv")
+# print(solution[solution["TripId"]==0])
+# print(weighted_reindeer_weariness(solution))
 # all_trips = sample_sub.merge(gifts, on='GiftId')
 # # print(all_trips)
 # print(weighted_reindeer_weariness(all_trips))
