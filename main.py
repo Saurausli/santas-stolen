@@ -168,12 +168,12 @@ if __name__ == "__main__":
 
     while len(gifts.index)> 0:
         # print(f"gifts length {len(gifts.index)}")
-        # gifts_max = gifts["Weight"].max()
-        # print(f"{gifts_max:.2f}-{gifts_max-weight_difference:.2f}")
+        gifts_max = gifts["Weight"].max()
+        print(f"{gifts_max:.2f}-{gifts_max-weight_difference:.2f}")
 
-        # next_chunk = gifts[(gifts["Weight"]>gifts_max-weight_difference)].copy()
+        next_chunk = gifts[(gifts["Weight"]>gifts_max-weight_difference)].copy()
 
-        next_chunk = gifts.head(trips).copy()
+        # next_chunk = gifts.head(trips).copy()
         
         solution = calcutlate_df_loop(solution,next_chunk,gifts)
         print(f"solution {len(solution.index)}")
