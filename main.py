@@ -40,7 +40,7 @@ def first_solution():
 
 
 if __name__ == "__main__":
-    trips= 5000
+    trips= 4000
     weight_difference = 5
 
     gifts = pd.read_csv('data/gifts.csv')
@@ -61,10 +61,10 @@ if __name__ == "__main__":
 
         # next_chunk = gifts[(gifts["Weight"]>gifts_max-weight_difference)].copy() #two
 
-        next_chunk = gifts.head(trips*2).copy() # three
+        # next_chunk = gifts.head(trips*4).copy() # three
         # next_chunk = gifts.head(int(trips/2)).copy() # four
 
-        solution = distribute_trips_to_gifts(solution,next_chunk,gifts)
+        solution = distribute_trips_to_gifts(solution,gifts,gifts)
         print(f"solution {len(solution.index)}")
     solution = solution[::-1]
     print_meas()
