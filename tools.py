@@ -26,6 +26,9 @@ def weighted_trip_length(stops, weights):
     return dist
 
 def weighted_reindeer_weariness(all_trips):
+    check_sum = len(all_trips.GiftId.unique())
+    if check_sum != 100000:
+        raise Exception(f"Gifts missing {check_sum}")
     uniq_trips = all_trips.TripId.unique()
     
     if any(all_trips.groupby('TripId').Weight.sum() > weight_limit):
@@ -78,15 +81,16 @@ def end_meas():
 def print_meas():
     global t_sum
     global t_it
+    
     print(f" Total time: {(t_sum):.2f} sec")
-    print(f" Cycle time: {(t_sum)/t_it*1e6:.2f} usec")
+    if t_it > 0:
+        print(f" Cycle time: {(t_sum)/t_it*1e6:.2f} usec")
     t_sum = 0
     t_it = 0
 
     
-def calcutlate_df_loop(inital_step,next_steps,gifts):
-    # print(inital_step[inital_step["GiftId"]==99980])
-    # print(next_steps[next_steps["GiftId"]==99980])
+def distribute_gifts_to_trips(inital_step,next_steps,gifts):
+
     trips = inital_step['TripId'].unique().tolist()
     random.shuffle(trips)
     for t in trips:
@@ -110,28 +114,66 @@ def calcutlate_df_loop(inital_step,next_steps,gifts):
         a = np.sin(dlat / 2)**2 + np.cos(end_lat) * np.cos(start_lat) * np.sin(dlon / 2)**2
         # print(a)
         c = 2 * np.asin(np.sqrt(a)) 
-        r = 6371
-        
+        r = 6371  
         dist =  r * c * weights
-        # print(dist.argmin())
-        # print(next_steps)
-        # try:
         wrw_min_row = next_steps.iloc[dist.argmin()].copy()
-        # except ValueError:
-        #     print(weights)
-        #     print(c)
-        #     print(dist)
-        #     print(next_steps)
         wrw_min_row['TripId'] = t
         wrw_min_row= wrw_min_row.to_frame().T
         # if t == 0:
         # print(wrw_min_row)
         next_steps.drop(index=wrw_min_row.index, inplace = True)
         gifts.drop(index = wrw_min_row.index, inplace = True)
-
         inital_step = pd.concat([inital_step,wrw_min_row], ignore_index=True)
-        
-
         end_meas()   
     
     return inital_step
+
+   
+def distribute_trips_to_gifts(inital_steps:pd.DataFrame,next_steps:pd.DataFrame,gifts:pd.DataFrame):
+    start_meas()
+    last_steps = inital_steps.groupby('TripId').tail(1)
+    last_steps.sort_values('TripId')
+
+    start_lat = last_steps['Latitude'].to_numpy()
+    start_lon = last_steps['Longitude'].to_numpy()
+    trips = []
+    for i, next_gift in next_steps.iterrows():
+
+        
+        end_lat = next_gift.Latitude
+        end_lon = next_gift.Longitude
+        weights = next_gift.Weight
+        # print(next_gift)
+        dlon = (start_lon - end_lon) 
+        dlat = (start_lat - end_lat)
+        a = np.sin(dlat / 2)**2 + np.cos(end_lat) * np.cos(start_lat) * np.sin(dlon / 2)**2
+        # print(a)
+        c = 2 * np.asin(np.sqrt(a)) 
+        r = 6371  
+        dist =  r * c * weights
+        # print(next_gift)
+        
+        next_gift = next_gift.to_frame().T
+        t = dist.argmin()
+        trips.append(t)
+        start_lat[t] = end_lat
+        start_lon[t] = end_lon
+    next_steps['TripId'] = trips
+    inital_steps = pd.concat([inital_steps,next_steps], ignore_index=True)
+    gifts.drop(index = next_steps.index, inplace = True)
+    end_meas() 
+    print_meas()
+    return inital_steps
+        # inital_steps = pd.concat([inital_steps,wrw_min_row], ignore_index=True)
+        # print(wrw_min_trip)
+        
+        # wrw_min_row['TripId'] = t
+        # wrw_min_row= wrw_min_row.to_frame().T
+    #     # if t == 0:
+    #     # print(wrw_min_row)
+    #     next_steps.drop(index=wrw_min_row.index, inplace = True)
+    #     gifts.drop(index = wrw_min_row.index, inplace = True)
+    #     inital_step = pd.concat([inital_step,wrw_min_row], ignore_index=True)
+    #     end_meas()   
+    
+    # return inital_step
