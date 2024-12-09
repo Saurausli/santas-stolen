@@ -10,3 +10,4 @@ print(f"three Solution:  {weighted_reindeer_weariness(pd.read_csv('data/three_so
 print(f"trips_to_gifts:  {weighted_reindeer_weariness(pd.read_csv('data/trips_to_gifts.csv'))}")
 print(f"trips_to_gifts2: {weighted_reindeer_weariness(pd.read_csv('data/trips_to_gifts2.csv'))}")
 print(f"trips_to_giftsr: {weighted_reindeer_weariness(pd.read_csv('data/trips_to_giftsr.csv'))}")
+print(f"trips_to_giftsr: {weighted_reindeer_weariness(pd.read_csv('data/trips_to_giftsr_random.csv'))}")

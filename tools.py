@@ -25,14 +25,25 @@ def weighted_trip_length(stops, weights):
         prev_weight = prev_weight - weight
     return dist
 
+class ToHeavy(Exception):
+    """Exception raised for custom error scenarios.
+
+    Attributes:
+        message -- explanation of the error
+    """
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
 def weighted_reindeer_weariness(all_trips):
-    check_sum = len(all_trips.GiftId.unique())
-    if check_sum != 100000:
-        raise Exception(f"Gifts missing {check_sum}")
+    # check_sum = len(all_trips.GiftId.unique())
+    # if check_sum != 100000:
+    #     raise Exception(f"Gifts missing {check_sum}")
     uniq_trips = all_trips.TripId.unique()
     
     if any(all_trips.groupby('TripId').Weight.sum() > weight_limit):
-        raise Exception("One of the sleighs over weight limit!")
+        raise ToHeavy(f"One of the sleighs over weight limit! {all_trips.groupby('TripId').Weight.sum()}")
+
  
     dist = 0.0
     for t in uniq_trips:
@@ -125,10 +136,20 @@ def distribute_gifts_to_trips(inital_step,next_steps,gifts):
         gifts.drop(index = wrw_min_row.index, inplace = True)
         inital_step = pd.concat([inital_step,wrw_min_row], ignore_index=True)
         end_meas()   
-    
+        print_meas()
     return inital_step
 
-   
+
+def array_haversin(start_lat,start_lon,end_lat,end_lon):
+    dlon = (start_lon - end_lon) 
+    dlat = (start_lat - end_lat)
+    a = np.sin(dlat / 2)**2 + np.cos(end_lat) * np.cos(start_lat) * np.sin(dlon / 2)**2
+    # 
+    c = 2 * np.asin(np.sqrt(a)) 
+    r = 6371  
+    
+    return  r * c
+
 def distribute_trips_to_gifts(inital_steps:pd.DataFrame,next_steps:pd.DataFrame,gifts:pd.DataFrame):
     start_meas()
     last_steps = inital_steps.groupby('TripId').tail(1)
@@ -143,15 +164,10 @@ def distribute_trips_to_gifts(inital_steps:pd.DataFrame,next_steps:pd.DataFrame,
         end_lat = next_gift.Latitude
         end_lon = next_gift.Longitude
         weights = next_gift.Weight
-        # print(next_gift)
-        dlon = (start_lon - end_lon) 
-        dlat = (start_lat - end_lat)
-        a = np.sin(dlat / 2)**2 + np.cos(end_lat) * np.cos(start_lat) * np.sin(dlon / 2)**2
-        # print(a)
-        c = 2 * np.asin(np.sqrt(a)) 
-        r = 6371  
-        dist =  r * c * weights
-        # print(next_gift)
+
+        dist = array_haversin(start_lat,start_lon,end_lat,end_lon)
+        dist = dist* weights
+
         
         next_gift = next_gift.to_frame().T
         t = dist.argmin()
@@ -164,6 +180,103 @@ def distribute_trips_to_gifts(inital_steps:pd.DataFrame,next_steps:pd.DataFrame,
     end_meas() 
     print_meas()
     return inital_steps
+
+def calculate_middle_point(latitude, longitude):
+    
+    x = y = z = 0.0
+    for lat, lon in zip(latitude, longitude):
+        lat_rad = np.radians(lat)
+        lon_rad = np.radians(lon)
+        
+        # Convert to Cartesian coordinates
+        x += np.cos(lat_rad) * np.cos(lon_rad)
+        y += np.cos(lat_rad) * np.sin(lon_rad)
+        z += np.sin(lat_rad)
+    
+    # Average Cartesian coordinates
+    total = len(latitude)
+    x /= total
+    y /= total
+    z /= total
+    
+    # Convert back to latitude and longitude
+    lon_center = np.atan2(y, x)
+    hyp = np.sqrt(x * x + y * y)
+    lat_center = np.atan2(z, hyp)
+    # Convert back to degrees
+
+    return np.degrees(lat_center), np.degrees(lon_center)
+
+
+def get_trips_meta(df:pd.DataFrame):
+    uniq_trips = df.TripId.unique().tolist()
+    trips = pd.DataFrame()
+    trips["Id"] = uniq_trips
+    trips["Weight"] = 0.0
+    trips["Latitude"] = 0.0
+    trips["Longitude"] = 0.0
+    trips["Cost"] = 0.0
+    for t in uniq_trips:
+        this_trip = df[df.TripId==t]
+        trips.loc[trips.Id == t,"Weight"] = float(this_trip.Weight.sum())
+        trips.loc[trips.Id == t,"Cost"] = float(weighted_trip_length(this_trip[['Latitude','Longitude']], this_trip.Weight.tolist()))
+        trips.loc[trips.Id == t,"Latitude"], trips.loc[trips.Id == t,"Longitude"] = calculate_middle_point(this_trip['Latitude'].to_numpy(),this_trip['Longitude'].to_numpy())
+    trips["Weight_To_Cost"] = trips["Weight"] / trips["Cost"] *1000
+    return trips
+
+
+def combine(df):
+    
+    # print(trips)
+    old_score = weighted_reindeer_weariness(df)
+    trips = get_trips_meta(df)
+    trips_ids = trips["Id"].to_list()
+
+    for trip_id in trips_ids:
+        old_id = trip_id
+        t_start = trips[trips.Id == old_id]
+        trips["Distance"] = array_haversin(t_start["Latitude"].to_numpy()[0],t_start["Longitude"].to_numpy()[0],trips["Latitude"].to_numpy(),trips["Longitude"].to_numpy())
+        trips = trips.sort_values("Distance",ascending=True)
+
+        for i,t in trips.iloc[1:100].iterrows():
+            new_id = t.Id
+            trip1 = df[df.TripId == old_id].copy()
+            trip2 = df[df.TripId == new_id].copy()
+            cost1 = weighted_reindeer_weariness(trip1)
+            cost2 = weighted_reindeer_weariness(trip2)
+            # print(cost1,len(trip1))
+            # print(cost2,len(trip2))
+            trip2.TripId = old_id
+            combined_trip = pd.concat([trip1,trip2], ignore_index=True)
+            new_cost = cost1 + cost2 +10
+            try:
+                new_cost = weighted_reindeer_weariness(combined_trip)
+            except ToHeavy:
+                # print("to heavy")
+                # break
+                pass
+
+            if new_cost < cost1 + cost2:
+                print(f"merge {new_id} {old_id}")
+                df.drop(index=df[df["GiftId"].isin(combined_trip.GiftId)].index, inplace=True)
+                df = pd.concat([df,combined_trip], ignore_index=True)
+                print(f"{i} score {new_cost -(cost1 + cost2):20.0f}")
+                trips_ids.remove(new_id)
+        trips = get_trips_meta(df)
+    new_score = weighted_reindeer_weariness(df)
+    print(f"old score {old_score:20.0f}")
+    print(f"new score {new_score:20.0f}")
+
+def modify_trips(df:pd.DataFrame):
+    combine(df)
+    
+
+
+if __name__ == "__main__":
+    df = pd.read_csv("data/trips_to_giftsr_random.csv", index_col=0)
+    modify_trips(df)
+
+
         # inital_steps = pd.concat([inital_steps,wrw_min_row], ignore_index=True)
         # print(wrw_min_trip)
         
