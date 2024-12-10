@@ -23,7 +23,7 @@ def get_trips_meta(df:pd.DataFrame):
         trips.loc[trips.Id == t,"Weight"] = float(this_trip.Weight.sum())
         trips.loc[trips.Id == t,"Cost"] = float(weighted_trip_length(this_trip[['Latitude','Longitude']], this_trip.Weight.tolist()))
         trips.loc[trips.Id == t,"Latitude"], trips.loc[trips.Id == t,"Longitude"] = calculate_middle_point(this_trip['Latitude'].to_numpy(),this_trip['Longitude'].to_numpy())
-    # trips["Weight_To_Cost"] = trips["Weight"] / trips["Cost"] *1000
+    trips["Weight_To_Cost"] = trips["Weight"] / trips["Cost"] *1000
     return trips
 
 def weighted_trip_length(stops, weights): 

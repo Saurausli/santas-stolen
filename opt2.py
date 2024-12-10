@@ -1,6 +1,6 @@
 from py2opt.routefinder import RouteFinder
 import pandas as pd
-from tools import sleigh_weight,north_pole,array_haversin,weighted_reindeer_weariness_single_trip,weighted_reindeer_weariness,weighted_trip_length_tuned
+from tools import sleigh_weight,north_pole,array_haversin,weighted_reindeer_weariness_single_trip,weighted_reindeer_weariness,weighted_trip_length_tuned,get_trips_meta
 import numpy as np
 from tqdm import tqdm
 import random
@@ -18,7 +18,7 @@ def opt2(df:pd.DataFrame):
         weight = trip.Weight.to_list()
         g = trip.GiftId.to_list()
         prev_score = weighted_trip_length_tuned(lat,lon,weight)
-        for it in range(1000):
+        for it in range(len(weight)*100):
             rand_idx_1 = random.randint(0, len(g)-1)
             rand_idx_2 = random.randint(0, len(g)-1)
             if rand_idx_1 == rand_idx_2:
@@ -47,9 +47,11 @@ def opt2(df:pd.DataFrame):
         else:
             df_solution = pd.concat([df_solution,trip])
 
-    df_solution.to_csv("data/opt2.csv")
-    print(f"og  :{weighted_reindeer_weariness(df):20.0f}")
-    print(f"new :{weighted_reindeer_weariness(df_solution):20.0f}")
+    df_solution.to_csv("data/opt3.csv")
+    return df_solution
+    # print(f"og  :{weighted_reindeer_weariness(df):20.0f}")
+    # print(f"new :{weighted_reindeer_weariness(df_solution):20.0f}")
 
-df = pd.read_csv("data/trips_combined.csv",index_col= 0)
-opt2(df)
+# print(weighted_reindeer_weariness(pd.read_csv("data/opt2.csv",index_col= 0)))
+# print(weighted_reindeer_weariness(opt2(pd.read_csv("data/trips_to_giftsr_random.csv",index_col= 0))))
+print(weighted_reindeer_weariness(opt2(pd.read_csv("data/trips_combined.csv",index_col= 0))))
