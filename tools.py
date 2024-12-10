@@ -2,7 +2,7 @@
 north_pole = [90.0,0.0]
 weight_limit = 1000
 sleigh_weight = 10.0
-
+GRAD_RAD = 3.141592653589793 / 180
 import random
 import pandas as pd
 import numpy as np
@@ -110,11 +110,11 @@ def haversine(pos1: tuple, pos2: tuple):
     """
     # convert decimal degrees to radians 
     # lon1, lat1, lon2, lat2 = np.radians([*pos1, *pos2])
-    # pos = pos* (3.141592653589793 / 180)
-    lat1 = pos1[0]* (3.141592653589793 / 180)
-    lon1 = pos1[1]* (3.141592653589793 / 180)
-    lat2 = pos2[0]* (3.141592653589793 / 180)
-    lon2 = pos2[1]* (3.141592653589793 / 180)
+    # pos = pos* GRAD_RAD
+    lat1 = pos1[0]* GRAD_RAD
+    lon1 = pos1[1]* GRAD_RAD
+    lat2 = pos2[0]* GRAD_RAD
+    lon2 = pos2[1]* GRAD_RAD
     # haversine formula 
     
     dlon = lon2 - lon1 
@@ -184,12 +184,12 @@ def distribute_gifts_to_trips(inital_step,next_steps,gifts):
         # print(last_step)
 
         wrw_min_row = []
-        start_lat = float(last_step['Latitude'])* (3.141592653589793 / 180)
-        start_lon = float(last_step['Longitude'])* (3.141592653589793 / 180)
+        start_lat = float(last_step['Latitude'])* GRAD_RAD
+        start_lon = float(last_step['Longitude'])* GRAD_RAD
         
 
-        end_lat = next_steps['Latitude'].to_numpy()* (3.141592653589793 / 180)
-        end_lon = next_steps['Longitude'].to_numpy()* (3.141592653589793 / 180)
+        end_lat = next_steps['Latitude'].to_numpy()* GRAD_RAD
+        end_lon = next_steps['Longitude'].to_numpy()* GRAD_RAD
         weights = next_steps['Weight'].to_numpy()
         if len(weights)==0:
             break
@@ -210,39 +210,6 @@ def distribute_gifts_to_trips(inital_step,next_steps,gifts):
         inital_step = pd.concat([inital_step,wrw_min_row], ignore_index=True)
          
     return inital_step
-
-
-
-
-def distribute_trips_to_gifts(inital_steps:pd.DataFrame,next_steps:pd.DataFrame,gifts:pd.DataFrame):
-
-    last_steps = inital_steps.groupby('TripId').tail(1)
-    last_steps.sort_values('TripId')
-
-    start_lat = last_steps['Latitude'].to_numpy()
-    start_lon = last_steps['Longitude'].to_numpy()
-    trips = []
-    for i, next_gift in next_steps.iterrows():
-
-        
-        end_lat = next_gift.Latitude
-        end_lon = next_gift.Longitude
-        weights = next_gift.Weight
-
-        dist = array_haversin(start_lat,start_lon,end_lat,end_lon)
-        dist = dist* weights
-
-        
-        next_gift = next_gift.to_frame().T
-        t = dist.argmin()
-        trips.append(t)
-        start_lat[t] = end_lat
-        start_lon[t] = end_lon
-    next_steps['TripId'] = trips
-    inital_steps = pd.concat([inital_steps,next_steps], ignore_index=True)
-    gifts.drop(index = next_steps.index, inplace = True)
-
-    return inital_steps
 
 
 def calculate_middle_point(latitude, longitude):

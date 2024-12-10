@@ -2,45 +2,49 @@
 from tools import weighted_reindeer_weariness,clear, print_meas, start_meas,weighted_trip_length_tuned
 import numpy as np
 import pandas as pd
-from tools import weight_limit,weighted_reindeer_weariness,end_meas,start_meas,print_meas,weighted_reindeer_weariness_single_trip
+from tools import weight_limit,weighted_reindeer_weariness,end_meas,start_meas,print_meas,weighted_reindeer_weariness_single_trip,get_trips_meta,GRAD_RAD,array_haversin,ToHeavy
 import random
 from tqdm import tqdm
 
-def opt2(df:pd.DataFrame):
-    df_solution = pd.DataFrame()
-    # for trip_id in tqdm(df.TripId.unique()):
-    for trip_id in tqdm(df.TripId.unique()):
-        trip = df[df.TripId == trip_id]
-        og_score = weighted_reindeer_weariness_single_trip(trip)
-        # trip_rearranged = trip.sort_values("Weight")
-        lat = trip.Latitude.to_list()
-        lon = trip.Longitude.to_list()
-        weight = trip.Weight.to_list()
-        g = trip.GiftId.to_list()
-        prev_score = weighted_trip_length_tuned(lat,lon,weight)
-        for it in range(len(weight)*100):
-            rand_idx_1 = random.randint(0, len(g)-1)
-            rand_idx_2 = random.randint(0, len(g)-1)
-            if rand_idx_1 == rand_idx_2:
-                continue
+def opt2_single_trip(trip:pd.DataFrame):
+    lat = trip.Latitude.to_list()
+    lon = trip.Longitude.to_list()
+    weight = trip.Weight.to_list()
+    g = trip.GiftId.to_list()
+    prev_score = weighted_trip_length_tuned(lat,lon,weight)
+    for it in range(len(weight)*100):
+        rand_idx_1 = random.randint(0, len(g)-1)
+        rand_idx_2 = random.randint(0, len(g)-1)
+        if rand_idx_1 == rand_idx_2:
+            continue
+        lat[rand_idx_2], lat[rand_idx_1] = lat[rand_idx_1], lat[rand_idx_2]
+        lon[rand_idx_2], lon[rand_idx_1] = lon[rand_idx_1], lon[rand_idx_2]
+        weight[rand_idx_2], weight[rand_idx_1] = weight[rand_idx_1], weight[rand_idx_2]
+        new_score = weighted_trip_length_tuned(lat,lon,weight)
+        if prev_score > new_score:
+            prev_score = new_score
+            g[rand_idx_2], g[rand_idx_1] = g[rand_idx_1], g[rand_idx_2]
+        else:
             lat[rand_idx_2], lat[rand_idx_1] = lat[rand_idx_1], lat[rand_idx_2]
             lon[rand_idx_2], lon[rand_idx_1] = lon[rand_idx_1], lon[rand_idx_2]
             weight[rand_idx_2], weight[rand_idx_1] = weight[rand_idx_1], weight[rand_idx_2]
-            new_score = weighted_trip_length_tuned(lat,lon,weight)
-            if prev_score > new_score:
-                prev_score = new_score
-                g[rand_idx_2], g[rand_idx_1] = g[rand_idx_1], g[rand_idx_2]
-            else:
-                lat[rand_idx_2], lat[rand_idx_1] = lat[rand_idx_1], lat[rand_idx_2]
-                lon[rand_idx_2], lon[rand_idx_1] = lon[rand_idx_1], lon[rand_idx_2]
-                weight[rand_idx_2], weight[rand_idx_1] = weight[rand_idx_1], weight[rand_idx_2]
 
-        trip_rearranged = trip.set_index('GiftId').loc[g].reset_index()
+    trip_rearranged = trip.set_index('GiftId').loc[g].reset_index()
+    return trip_rearranged
+
+def opt2(df:pd.DataFrame):
+    df_solution = pd.DataFrame()
+    for trip_id in tqdm(df.TripId.unique()):
+        trip = df[df.TripId == trip_id]
+        og_score = weighted_reindeer_weariness_single_trip(trip)
+        trip_rearranged = opt2_single_trip(trip)
+
         if og_score>weighted_reindeer_weariness_single_trip(trip_rearranged):
             df_solution = pd.concat([df_solution,trip_rearranged])
         else:
             df_solution = pd.concat([df_solution,trip])
     return df_solution.set_index('GiftId').reset_index()
+
 
 def combine_trips(df):
     old_score = weighted_reindeer_weariness(df)
@@ -48,20 +52,16 @@ def combine_trips(df):
     trips_ids = df.TripId.unique().tolist()
     try:
         for trip_id in tqdm(trips_ids):
-            
-            # print(f"\ntrip_id {i} - {len(trips_ids)}")
             print(f"old score {old_score:20.0f}")
             print(f"new score {new_score:20.0f}")
             print(f"---------------------------")
             print(f"optimized {old_score-new_score:20.0f}")
             print_meas()
             start_meas()
+
+
             old_id = trip_id
-
             trip1 = df[df.TripId == old_id]
-
-            
-            
             lat_1 = trip1['Latitude'].to_list()
             lon_1 = trip1['Longitude'].to_list()
             weight_1 = trip1['Weight'].to_list()
@@ -85,9 +85,7 @@ def combine_trips(df):
                 comb_lon = [*lon_1,*lon_2]
                 comb_weight = [*weight_1,*weight_2]
                 new_cost = weighted_trip_length_tuned(comb_lat,comb_lon, comb_weight)
-                lon_2
-
-                    
+ 
                 if new_cost < cost1 + cost2:
                     new_score = new_score + new_cost - cost1 - cost2
 
@@ -101,18 +99,8 @@ def combine_trips(df):
                     lon_1 = comb_lon
                     weight_1 = comb_weight
                     cost1 = cost1 + cost2
-                    if len(df) <100000:
-                        print("error")
-                        print(df)
-                        raise ValueError
-                    try:
-                        print(f"drop {new_id}")
-                        trips_ids.remove(new_id)
-                    except ValueError:
-                        print(trips_ids)
-                        print(new_id)
-                        raise ValueError
-                
+                    trips_ids.remove(new_id)
+
             trips_ids.remove(old_id)
             end_meas()
             clear()
@@ -125,15 +113,46 @@ def combine_trips(df):
     print(f"new score {new_score:20.0f}")
     return df# df.to_csv("data/opt3_combined.csv")
 
+def combine_neares(df):
+    tr = get_trips_meta(df)
+    tr['Latitude'] *= GRAD_RAD
+    tr['Longitude'] *= GRAD_RAD
+    
+    for i,t in tqdm(tr.iterrows()):
+        tr["Distance"] =  array_haversin(tr['Latitude'].to_list(),tr['Longitude'].to_list(),t['Latitude'],t['Longitude'])
+        tr["Weight_Sum"] = tr.Weight + t.Weight
+        tr = tr[tr["Weight_Sum"]<weight_limit]
+        tr = tr.sort_values("Distance")
+        t_nearest = tr.iloc[1].Id
+        df2 = df[df["TripId"] == t_nearest]
+        df1 = df[df["TripId"] == t.Id]
+        cost1 = weighted_reindeer_weariness_single_trip(df1)
+        cost2 = weighted_reindeer_weariness_single_trip(df2)
+        df_comb = pd.concat([df1,df2],ignore_index=False)
+        trip_new = opt2_single_trip(df_comb)
+        try:
+            total_cost = weighted_reindeer_weariness_single_trip(trip_new)
+        except ToHeavy:
+            continue
+        if total_cost< cost1 + cost2:
+            df.drop(index=df[df["GiftId"].isin(df_comb.GiftId)].index, inplace=True)
+            df_comb.GiftId = t.Id
+            df = pd.concat([df,df_comb],ignore_index=False)
+            
+    return df
+
 def modify_trips(df:pd.DataFrame):
     df = combine_trips(df)
     df = opt2(df)
     df.to_csv("optimized.csv",index=False)
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/opt3.csv", index_col=0)
-    print(len(df))
-    modify_trips(df)
+    df = pd.read_csv("data/trips_to_giftsr_random.csv", index_col=0)
+    print(weighted_reindeer_weariness(df))
+    
+    print(weighted_reindeer_weariness(combine_neares(df)))
+    # print(len(df))
+    # modify_trips(df)
     # df = pd.read_csv("data/trips_combined2.csv", index_col=0)
     # print(len(df))
     # modify_trips(df)
