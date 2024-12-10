@@ -10,9 +10,7 @@ import random
 
 def first_solution():
     trips= 10000
-    weight_difference = 5
-
-    gifts = pd.read_csv('gifts.csv')
+    gifts = pd.read_csv('data/gifts.csv')
     gifts = gifts.sort_values(by=['Weight'], ascending=False)
     solution = gifts.head(trips).copy()
 
@@ -24,7 +22,7 @@ def first_solution():
     while len(gifts.index)> 0:
         # print(f"gifts length {len(gifts.index)}")
         gifts_max = gifts["Weight"].max()
-        print(f"{gifts_max:.2f}-{gifts_max-weight_difference:.2f}")
+        print(f"{gifts_max:.2f}-{gifts_max:.2f}")
 
         # next_chunk = gifts[(gifts["Weight"]>gifts_max-weight_difference)].copy() #two
 
@@ -34,38 +32,41 @@ def first_solution():
         solution = distribute_gifts_to_trips(solution,next_chunk,gifts)
         print(f"solution {len(solution.index)}")
 
-    print_meas()
     print(weighted_reindeer_weariness(solution))
     solution.to_csv("data/four_solution.csv")
 
 
 if __name__ == "__main__":
-    trips= 5000
-    weight_difference = 5
+    start_meas()
+    first_solution()
+    # trips= 5000
+    # weight_difference = 5
 
-    gifts = pd.read_csv('data/gifts.csv')
-    gifts['Latitude'] *= (3.141592653589793 / 180)
-    gifts['Longitude'] *= (3.141592653589793 / 180)
-    gifts = gifts.sort_values(by=['Weight'], ascending=True)
-    solution = gifts.head(trips).copy()
-
-    # ids = gifts.head(trips*3)["GiftId"].to_list()
-    # ids = random.sample(ids, trips)
-    # solution = gifts[gifts['GiftId'].isin(ids)].copy()
+    # gifts = pd.read_csv('data/gifts.csv')
+    # gifts['Latitude'] *= (3.141592653589793 / 180)
+    # gifts['Longitude'] *= (3.141592653589793 / 180)
     # gifts = gifts.sort_values(by=['Weight'], ascending=True)
-    gifts.drop(index = solution.index, inplace = True)
-    # plt.scatter(solution["Longitude"],solution["Latitude"])
+    # solution = gifts.head(trips).copy()
 
-    solution['TripId'] = range(0, len(solution))
+    # # ids = gifts.head(trips*3)["GiftId"].to_list()
+    # # ids = random.sample(ids, trips)
+    # # solution = gifts[gifts['GiftId'].isin(ids)].copy()
+    # # gifts = gifts.sort_values(by=['Weight'], ascending=True)
+    # gifts.drop(index = solution.index, inplace = True)
+    # # plt.scatter(solution["Longitude"],solution["Latitude"])
+
+    # solution['TripId'] = range(0, len(solution))
     
-    while len(gifts.index)> 0:
-        solution = distribute_trips_to_gifts(solution,gifts,gifts)
-    solution['Latitude'] /= (3.141592653589793 / 180)
-    solution['Longitude'] /= (3.141592653589793 / 180)
-    solution = solution[::-1]
+    # while len(gifts.index)> 0:
+    #     solution = distribute_trips_to_gifts(solution,gifts,gifts)
+    # solution['Latitude'] /= (3.141592653589793 / 180)
+    # solution['Longitude'] /= (3.141592653589793 / 180)
+    # solution = solution[::-1]
+    
+    # print(weighted_reindeer_weariness(solution))
+    # solution.to_csv("data/trips_to_giftsr_random.csv")
+    end_meas()
     print_meas()
-    print(weighted_reindeer_weariness(solution))
-    solution.to_csv("data/trips_to_giftsr_random.csv")
 # print(solution[solution["TripId"]==0])
 # print(weighted_reindeer_weariness(solution))
 # all_trips = sample_sub.merge(gifts, on='GiftId')
