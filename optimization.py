@@ -47,9 +47,9 @@ def combine_trips(df):
     new_score = old_score
     trips_ids = df.TripId.unique().tolist()
     try:
-        for i,trip_id in tqdm(enumerate(trips_ids)):
-            clear()
-            print(f"trip_id {i} - {len(trips_ids)}")
+        for trip_id in tqdm(trips_ids):
+            
+            # print(f"\ntrip_id {i} - {len(trips_ids)}")
             print(f"old score {old_score:20.0f}")
             print(f"new score {new_score:20.0f}")
             print(f"---------------------------")
@@ -115,18 +115,20 @@ def combine_trips(df):
                 
             trips_ids.remove(old_id)
             end_meas()
-        
+            clear()
+
     except KeyboardInterrupt:
         pass
 
     new_score = weighted_reindeer_weariness(df)
     print(f"old score {old_score:20.0f}")
     print(f"new score {new_score:20.0f}")
-    df.to_csv("data/opt3_combined.csv")
+    return df# df.to_csv("data/opt3_combined.csv")
 
 def modify_trips(df:pd.DataFrame):
-    combine_trips(df)
-
+    df = combine_trips(df)
+    df = opt2(df)
+    df.to_csv("optimized.csv",index=False)
 
 if __name__ == "__main__":
     df = pd.read_csv("data/opt3.csv", index_col=0)

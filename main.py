@@ -35,36 +35,38 @@ def first_solution():
     print(weighted_reindeer_weariness(solution))
     solution.to_csv("data/four_solution.csv")
 
+def get_start_position():
+    trips= 5000
+    weight_difference = 5
+
+    gifts = pd.read_csv('data/gifts.csv')
+    gifts['Latitude'] *= (3.141592653589793 / 180)
+    gifts['Longitude'] *= (3.141592653589793 / 180)
+    gifts = gifts.sort_values(by=['Weight'], ascending=True)
+    solution = gifts.head(trips).copy()
+
+    # ids = gifts.head(trips*3)["GiftId"].to_list()
+    # ids = random.sample(ids, trips)
+    # solution = gifts[gifts['GiftId'].isin(ids)].copy()
+    # gifts = gifts.sort_values(by=['Weight'], ascending=True)
+    gifts.drop(index = solution.index, inplace = True)
+    # plt.scatter(solution["Longitude"],solution["Latitude"])
+
+    solution['TripId'] = range(0, len(solution))
+    
+    while len(gifts.index)> 0:
+        solution = distribute_trips_to_gifts(solution,gifts,gifts)
+    solution['Latitude'] /= (3.141592653589793 / 180)
+    solution['Longitude'] /= (3.141592653589793 / 180)
+    solution = solution[::-1]
+    
+    print(weighted_reindeer_weariness(solution))
+    solution.to_csv("data/trips_to_giftsr_random.csv")
 
 if __name__ == "__main__":
     start_meas()
-    first_solution()
-    # trips= 5000
-    # weight_difference = 5
 
-    # gifts = pd.read_csv('data/gifts.csv')
-    # gifts['Latitude'] *= (3.141592653589793 / 180)
-    # gifts['Longitude'] *= (3.141592653589793 / 180)
-    # gifts = gifts.sort_values(by=['Weight'], ascending=True)
-    # solution = gifts.head(trips).copy()
-
-    # # ids = gifts.head(trips*3)["GiftId"].to_list()
-    # # ids = random.sample(ids, trips)
-    # # solution = gifts[gifts['GiftId'].isin(ids)].copy()
-    # # gifts = gifts.sort_values(by=['Weight'], ascending=True)
-    # gifts.drop(index = solution.index, inplace = True)
-    # # plt.scatter(solution["Longitude"],solution["Latitude"])
-
-    # solution['TripId'] = range(0, len(solution))
     
-    # while len(gifts.index)> 0:
-    #     solution = distribute_trips_to_gifts(solution,gifts,gifts)
-    # solution['Latitude'] /= (3.141592653589793 / 180)
-    # solution['Longitude'] /= (3.141592653589793 / 180)
-    # solution = solution[::-1]
-    
-    # print(weighted_reindeer_weariness(solution))
-    # solution.to_csv("data/trips_to_giftsr_random.csv")
     end_meas()
     print_meas()
 # print(solution[solution["TripId"]==0])
