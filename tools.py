@@ -9,21 +9,43 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from math import radians, cos, sin, asin, sqrt
+from numba import njit
 
 def weighted_trip_length(stops, weights): 
     tuples = [tuple(x) for x in stops.values]
     # adding the last trip back to north pole, with just the sleigh weight
     tuples.append(north_pole)
     weights.append(sleigh_weight)
-    
     dist = 0.0
     prev_stop = north_pole
     prev_weight = sum(weights)
+
     for location, weight in zip(tuples, weights):
         dist = dist + haversine(location, prev_stop) * prev_weight
         prev_stop = location
         prev_weight = prev_weight - weight
+
     return dist
+
+def weighted_trip_length_tuned(lat:list,lon:list, weights:list): 
+    # print(len(lat))
+
+    deg_to_rad = np.pi / 180
+    weights.append(sleigh_weight)
+    weights = np.array(weights)
+    end_lat= np.array([north_pole[0],*lat])* deg_to_rad
+    end_lon = np.array([north_pole[1],*lon])* deg_to_rad
+
+    start_lat  = np.array([*lat,north_pole[0]])* deg_to_rad
+    start_lon = np.array([*lon,north_pole[1]])* deg_to_rad
+
+    prev_weight = np.cumsum(weights[::-1])[::-1]
+
+    dist = array_haversin(start_lat,start_lon,end_lat,end_lon)
+    dist = np.sum(dist*prev_weight)
+    
+    return dist
+
 
 class ToHeavy(Exception):
     """Exception raised for custom error scenarios.
@@ -49,11 +71,22 @@ def weighted_reindeer_weariness(all_trips):
     for t in uniq_trips:
         this_trip = all_trips[all_trips.TripId==t]
         dist = dist + weighted_trip_length(this_trip[['Latitude','Longitude']], this_trip.Weight.tolist())
-    
-    return dist    
+
+    return dist   
+
+
+
+def weighted_reindeer_weariness_single_trip(trip:pd.DataFrame):
+    if trip.Weight.sum() > weight_limit:
+        raise ToHeavy(f"One of the sleighs over weight limit!")
+    dist_opt = weighted_trip_length_tuned(trip['Latitude'].to_list(),trip['Longitude'].to_list(), trip.Weight.to_list())
+    return dist_opt   
+
 t_sum = 0
 t_it = 0
 t1, t2 = [0],[0]
+
+
 
 def haversine(pos1: tuple, pos2: tuple):
     """
@@ -63,17 +96,43 @@ def haversine(pos1: tuple, pos2: tuple):
     # convert decimal degrees to radians 
     # lon1, lat1, lon2, lat2 = np.radians([*pos1, *pos2])
     # pos = pos* (3.141592653589793 / 180)
-    lon1 = pos1[0]* (3.141592653589793 / 180)
-    lat1 = pos1[1]* (3.141592653589793 / 180)
-    lon2 = pos2[0]* (3.141592653589793 / 180)
-    lat2 = pos2[1]* (3.141592653589793 / 180)
+    lat1 = pos1[0]* (3.141592653589793 / 180)
+    lon1 = pos1[1]* (3.141592653589793 / 180)
+    lat2 = pos2[0]* (3.141592653589793 / 180)
+    lon2 = pos2[1]* (3.141592653589793 / 180)
     # haversine formula 
+    
     dlon = lon2 - lon1 
     dlat = lat2 - lat1 
     a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
     c = 2 * asin(sqrt(a)) 
     r = 6371  # Radius of earth in kilometers
     return c * r
+
+
+def array_haversin(start_lat,start_lon,end_lat,end_lon):
+    dlon = (start_lon - end_lon) 
+    dlat = (start_lat - end_lat)
+    a = np.sin(dlat / 2)**2 + np.cos(end_lat) * np.cos(start_lat) * np.sin(dlon / 2)**2
+    c = 2 * np.asin(np.sqrt(a)) 
+    r = 6371  
+    return  r * c
+
+
+from os import system, name
+
+# import sleep to show output for some time period
+from time import sleep
+
+def clear():
+
+    # for windows
+    if name == 'nt':
+        _ = system('cls')
+
+    # for mac and linux(here, os.name is 'posix')
+    else:
+        _ = system('clear')
 
 def start_meas():
     global t1
@@ -93,7 +152,7 @@ def print_meas():
     global t_sum
     global t_it
     
-    print(f" Total time: {(t_sum):.2f} sec")
+    print(f" Total time: {(t_sum)*1000:.2f} msec")
     if t_it > 0:
         print(f" Cycle time: {(t_sum)/t_it*1e6:.2f} usec")
     t_sum = 0
@@ -105,7 +164,7 @@ def distribute_gifts_to_trips(inital_step,next_steps,gifts):
     trips = inital_step['TripId'].unique().tolist()
     random.shuffle(trips)
     for t in trips:
-        start_meas()
+        
         last_step = inital_step[inital_step['TripId']==t].iloc[-1]
         # print(last_step)
 
@@ -135,23 +194,15 @@ def distribute_gifts_to_trips(inital_step,next_steps,gifts):
         next_steps.drop(index=wrw_min_row.index, inplace = True)
         gifts.drop(index = wrw_min_row.index, inplace = True)
         inital_step = pd.concat([inital_step,wrw_min_row], ignore_index=True)
-        end_meas()   
+         
         print_meas()
     return inital_step
 
 
-def array_haversin(start_lat,start_lon,end_lat,end_lon):
-    dlon = (start_lon - end_lon) 
-    dlat = (start_lat - end_lat)
-    a = np.sin(dlat / 2)**2 + np.cos(end_lat) * np.cos(start_lat) * np.sin(dlon / 2)**2
-    # 
-    c = 2 * np.asin(np.sqrt(a)) 
-    r = 6371  
-    
-    return  r * c
+
 
 def distribute_trips_to_gifts(inital_steps:pd.DataFrame,next_steps:pd.DataFrame,gifts:pd.DataFrame):
-    start_meas()
+
     last_steps = inital_steps.groupby('TripId').tail(1)
     last_steps.sort_values('TripId')
 
@@ -177,8 +228,7 @@ def distribute_trips_to_gifts(inital_steps:pd.DataFrame,next_steps:pd.DataFrame,
     next_steps['TripId'] = trips
     inital_steps = pd.concat([inital_steps,next_steps], ignore_index=True)
     gifts.drop(index = next_steps.index, inplace = True)
-    end_meas() 
-    print_meas()
+
     return inital_steps
 
 def calculate_middle_point(latitude, longitude):
@@ -215,13 +265,13 @@ def get_trips_meta(df:pd.DataFrame):
     trips["Weight"] = 0.0
     trips["Latitude"] = 0.0
     trips["Longitude"] = 0.0
-    trips["Cost"] = 0.0
+    # trips["Cost"] = 0.0
     for t in uniq_trips:
         this_trip = df[df.TripId==t]
-        trips.loc[trips.Id == t,"Weight"] = float(this_trip.Weight.sum())
-        trips.loc[trips.Id == t,"Cost"] = float(weighted_trip_length(this_trip[['Latitude','Longitude']], this_trip.Weight.tolist()))
+        # trips.loc[trips.Id == t,"Weight"] = float(this_trip.Weight.sum())
+        # trips.loc[trips.Id == t,"Cost"] = float(weighted_trip_length(this_trip[['Latitude','Longitude']], this_trip.Weight.tolist()))
         trips.loc[trips.Id == t,"Latitude"], trips.loc[trips.Id == t,"Longitude"] = calculate_middle_point(this_trip['Latitude'].to_numpy(),this_trip['Longitude'].to_numpy())
-    trips["Weight_To_Cost"] = trips["Weight"] / trips["Cost"] *1000
+    # trips["Weight_To_Cost"] = trips["Weight"] / trips["Cost"] *1000
     return trips
 
 
@@ -229,43 +279,66 @@ def combine(df):
     
     # print(trips)
     old_score = weighted_reindeer_weariness(df)
+    new_score = old_score
     trips = get_trips_meta(df)
     trips_ids = trips["Id"].to_list()
 
-    for trip_id in trips_ids:
+    for i,trip_id in enumerate(trips_ids):
+        clear()
+        print(f"trip_id {i} - {len(trips_ids)}")
+        print(f"old score {old_score:20.0f}")
+        print(f"new score {new_score:20.0f}")
+        print(f"---------------------------")
+        print(f"optimized {old_score-new_score:20.0f}")
+        print_meas()
+        
         old_id = trip_id
-        t_start = trips[trips.Id == old_id]
-        trips["Distance"] = array_haversin(t_start["Latitude"].to_numpy()[0],t_start["Longitude"].to_numpy()[0],trips["Latitude"].to_numpy(),trips["Longitude"].to_numpy())
-        trips = trips.sort_values("Distance",ascending=True)
-
-        for i,t in trips.iloc[1:100].iterrows():
-            new_id = t.Id
+        # t_start = trips[trips.Id == old_id]
+        # trips["Distance"] = array_haversin(t_start["Latitude"].to_numpy()[0],t_start["Longitude"].to_numpy()[0],trips["Latitude"].to_numpy(),trips["Longitude"].to_numpy())
+        # trips = trips.sort_values("Distance",ascending=True)
+        # # trips_ids_2 = trips["Id"].to_list()
+        start_meas()
+        for t in trips_ids:
+            new_id = t
+            if new_id == old_id: 
+                continue
             trip1 = df[df.TripId == old_id].copy()
             trip2 = df[df.TripId == new_id].copy()
-            cost1 = weighted_reindeer_weariness(trip1)
-            cost2 = weighted_reindeer_weariness(trip2)
-            # print(cost1,len(trip1))
-            # print(cost2,len(trip2))
-            trip2.TripId = old_id
+            cost1 = weighted_reindeer_weariness_single_trip(trip1)
+            cost2 = weighted_reindeer_weariness_single_trip(trip2)
             combined_trip = pd.concat([trip1,trip2], ignore_index=True)
             new_cost = cost1 + cost2 +10
+            
             try:
-                new_cost = weighted_reindeer_weariness(combined_trip)
+                
+                new_cost = weighted_reindeer_weariness_single_trip(combined_trip)
+                
             except ToHeavy:
                 # print("to heavy")
                 # break
                 pass
-
+                
             if new_cost < cost1 + cost2:
-                print(f"merge {new_id} {old_id}")
+                new_score = new_score + new_cost - cost1 - cost2
                 df.drop(index=df[df["GiftId"].isin(combined_trip.GiftId)].index, inplace=True)
                 df = pd.concat([df,combined_trip], ignore_index=True)
-                print(f"{i} score {new_cost -(cost1 + cost2):20.0f}")
-                trips_ids.remove(new_id)
-        trips = get_trips_meta(df)
+
+                try:
+                    print(f"drop {new_id}")
+                    trips_ids.remove(new_id)
+                except ValueError:
+                    print(trips_ids)
+                    print(new_id)
+                    raise ValueError
+        trips_ids.remove(old_id)
+        end_meas()
+        # trips = get_trips_meta(df)
+        
+    
     new_score = weighted_reindeer_weariness(df)
     print(f"old score {old_score:20.0f}")
     print(f"new score {new_score:20.0f}")
+    df.to_csv("data/trips_combined.csv")
 
 def modify_trips(df:pd.DataFrame):
     combine(df)
