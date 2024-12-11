@@ -21,8 +21,11 @@ def get_trips_meta(df:pd.DataFrame):
     for t in uniq_trips:
         this_trip = df[df.TripId==t]
         trips.loc[trips.Id == t,"Weight"] = float(this_trip.Weight.sum())
-        trips.loc[trips.Id == t,"Cost"] = float(weighted_trip_length(this_trip[['Latitude','Longitude']], this_trip.Weight.tolist()))
-        trips.loc[trips.Id == t,"Latitude"], trips.loc[trips.Id == t,"Longitude"] = calculate_middle_point(this_trip['Latitude'].to_numpy(),this_trip['Longitude'].to_numpy())
+        trips.loc[trips.Id == t,"Cost"] = float(weighted_trip_length_tuned(this_trip['Latitude'].tolist(),
+                                                                           this_trip['Longitude'].tolist(), 
+                                                                           this_trip.Weight.tolist()))
+        trips.loc[trips.Id == t,"Latitude"], trips.loc[trips.Id == t,"Longitude"] = calculate_middle_point(this_trip['Latitude'].to_numpy(),
+                                                                                                           this_trip['Longitude'].to_numpy())
     trips["Weight_To_Cost"] = trips["Weight"] / trips["Cost"] *1000
     return trips
 
@@ -44,7 +47,7 @@ def weighted_trip_length(stops, weights):
 
 def weighted_trip_length_tuned(lat:list,lon:list, weights:list): 
     # print(len(lat))
-
+    
     deg_to_rad = np.pi / 180
 
     weights = np.array([*weights,sleigh_weight])
@@ -72,7 +75,8 @@ class ToHeavy(Exception):
         self.message = message
         super().__init__(self.message)
 
-def weighted_reindeer_weariness(all_trips):
+def weighted_reindeer_weariness(_all_trips):
+    all_trips = _all_trips.copy()
     # check_sum = len(all_trips.GiftId.unique())
     # if check_sum != 100000:
     #     raise Exception(f"Gifts missing {check_sum}")
@@ -211,16 +215,15 @@ def distribute_gifts_to_trips(inital_step,next_steps,gifts):
          
     return inital_step
 
-
 def calculate_middle_point(latitude, longitude):
     x = y = z = 0.0
-    for lat, lon in zip(latitude, longitude):
-        lat_rad = np.radians(lat)
-        lon_rad = np.radians(lon)
-        # Convert to Cartesian coordinates
-        x += np.cos(lat_rad) * np.cos(lon_rad)
-        y += np.cos(lat_rad) * np.sin(lon_rad)
-        z += np.sin(lat_rad)
+
+    lat_rad = np.radians(latitude)
+    lon_rad = np.radians(longitude)
+    # Convert to Cartesian coordinates
+    x = np.sum(np.cos(lat_rad) * np.cos(lon_rad))
+    y = np.sum(np.cos(lat_rad) * np.sin(lon_rad))
+    z = np.sum(np.sin(lat_rad))
     # Average Cartesian coordinates
     total = len(latitude)
     x /= total
@@ -232,8 +235,6 @@ def calculate_middle_point(latitude, longitude):
     lat_center = np.atan2(z, hyp)
     # Convert back to degrees
     return np.degrees(lat_center), np.degrees(lon_center)
-
-
     
 
 

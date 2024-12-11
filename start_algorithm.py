@@ -49,6 +49,6 @@ def get_start_position(trips= 5000):
     solution = solution[::-1]
     
     print(weighted_reindeer_weariness(solution))
-    solution.to_csv("data/trips_to_giftsr_random.csv")
-
+    # solution.to_csv("data/trips_to_giftsr_random.csv")
+    return solution
 

@@ -5,6 +5,8 @@ import pandas as pd
 from tools import weight_limit,weighted_reindeer_weariness,end_meas,start_meas,print_meas,weighted_reindeer_weariness_single_trip,get_trips_meta,GRAD_RAD,array_haversin,ToHeavy
 import random
 from tqdm import tqdm
+from analyse import check_df
+from start_algorithm import get_start_position
 
 def opt2_single_trip(trip:pd.DataFrame):
     lat = trip.Latitude.to_list()
@@ -12,7 +14,8 @@ def opt2_single_trip(trip:pd.DataFrame):
     weight = trip.Weight.to_list()
     g = trip.GiftId.to_list()
     prev_score = weighted_trip_length_tuned(lat,lon,weight)
-    for it in range(len(weight)*100):
+
+    for it in range(len(weight)*10):
         rand_idx_1 = random.randint(0, len(g)-1)
         rand_idx_2 = random.randint(0, len(g)-1)
         if rand_idx_1 == rand_idx_2:
@@ -113,32 +116,51 @@ def combine_trips(df):
     print(f"new score {new_score:20.0f}")
     return df# df.to_csv("data/opt3_combined.csv")
 
-def combine_neares(df):
-    tr = get_trips_meta(df)
-    tr['Latitude'] *= GRAD_RAD
-    tr['Longitude'] *= GRAD_RAD
+
+def combine_neares(_df: pd.DataFrame):
+    df = _df.copy()
+    def init_meta(df):
+        tr = get_trips_meta(df)
+        #tr = tr.set_index("Id")
+        # print(tr)
+        tr['Latitude'] *= GRAD_RAD
+        tr['Longitude'] *= GRAD_RAD
+        return tr
     
+    tr = init_meta(df)
     for i,t in tqdm(tr.iterrows()):
+        if(len(tr)<2):
+            break
         tr["Distance"] =  array_haversin(tr['Latitude'].to_list(),tr['Longitude'].to_list(),t['Latitude'],t['Longitude'])
         tr["Weight_Sum"] = tr.Weight + t.Weight
         tr = tr[tr["Weight_Sum"]<weight_limit]
         tr = tr.sort_values("Distance")
-        t_nearest = tr.iloc[1].Id
-        df2 = df[df["TripId"] == t_nearest]
-        df1 = df[df["TripId"] == t.Id]
+        try:
+            t_nearest = tr.iloc[1]["Id"]
+        except IndexError:
+            break
+        df1 = df[df["TripId"] == t.Id].copy()
+        df2 = df[df["TripId"] == t_nearest].copy()
+        
         cost1 = weighted_reindeer_weariness_single_trip(df1)
         cost2 = weighted_reindeer_weariness_single_trip(df2)
         df_comb = pd.concat([df1,df2],ignore_index=False)
+        
         trip_new = opt2_single_trip(df_comb)
         try:
             total_cost = weighted_reindeer_weariness_single_trip(trip_new)
+            
         except ToHeavy:
             continue
-        if total_cost< cost1 + cost2:
-            df.drop(index=df[df["GiftId"].isin(df_comb.GiftId)].index, inplace=True)
-            df_comb.GiftId = t.Id
+
+        if total_cost < cost1 + cost2:
+            df_comb.TripId = t.Id
+            df[df["TripId"] == t_nearest] = t.Id
+            df.drop(index=df[df["TripId"] == t.Id].index, inplace=True)
             df = pd.concat([df,df_comb],ignore_index=False)
-            
+            tr.drop(index=tr[tr["Id"] == t.Id].index, inplace=True)
+            tr.drop(index=tr[tr["Id"] == t_nearest].index, inplace=True)
+            # print(weighted_reindeer_weariness(df))
     return df
 
 def modify_trips(df:pd.DataFrame):
@@ -147,12 +169,22 @@ def modify_trips(df:pd.DataFrame):
     df.to_csv("optimized.csv",index=False)
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/trips_to_giftsr_random.csv", index_col=0)
-    print(weighted_reindeer_weariness(df))
-    
-    print(weighted_reindeer_weariness(combine_neares(df)))
-    # print(len(df))
-    # modify_trips(df)
-    # df = pd.read_csv("data/trips_combined2.csv", index_col=0)
-    # print(len(df))
-    # modify_trips(df)
+    # df = pd.read_csv("data/trips_to_giftsr_random.csv", index_col=0)
+    # df = get_start_position(10000)
+    # df.to_csv("data/1000.csv",index=False)
+    # old_score = weighted_reindeer_weariness(df)
+    # check_df(df)
+    # while True: 
+    #     df = combine_neares(df)
+    #     new_score = weighted_reindeer_weariness(df)
+    #     check_df(df)
+    #     if old_score - new_score < 1e6:
+    #         break
+    #     old_score = new_score
+
+    # df.to_csv("data/nearest.csv",index=False)
+    df = pd.read_csv("data/nearest.csv")
+    check_df(df)
+    df = opt2(df)
+    check_df(df)
+    df.to_csv("data/opt2.csv",index=False)
